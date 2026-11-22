@@ -115,6 +115,20 @@ class ZrokTunnel(
     }
 
     /**
+     * Lado host de un share `drive`: sirve el directorio [rootPath] como un
+     * servidor WebDAV sobre el stream ziti del share. El endpoint público del
+     * share (o un access privado) entrega un HTTP que este host responde con
+     * WebDAV (OPTIONS/PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY). Montable desde
+     * el Explorador de Windows, Cyberduck, rclone o Finder.
+     */
+    fun hostDrive(shareToken: String, rootPath: String): ZrokDriveServer {
+        val root = java.io.File(rootPath).canonicalFile
+        require(root.isDirectory) { "rootPath no es un directorio: '$rootPath'" }
+        val server = gateway().host(shareToken)
+        return ZrokDriveServer(server, root, scope).also { endpoints.add(it) }
+    }
+
+    /**
      * Conecta directamente con el servicio ziti del share y devuelve la conexión
      * con streams bloqueantes listos para leer y escribir.
      */

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.serialization)
+    `maven-publish`
 }
 
 android {
@@ -35,5 +36,17 @@ dependencies {
     // escritorio que llega via ziti-jvm para evitar binarios nativos de Linux/mac/Win.
     configurations.all {
         exclude(group = "com.goterl", module = "lazysodium-java")
+    }
+}
+
+// Publicación Maven del AAR: AGP expone el componente "release" tras evaluar.
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                artifactId = "zrok-android"
+            }
+        }
     }
 }

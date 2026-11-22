@@ -19,6 +19,16 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.openapi.generator)
+    `maven-publish`
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["kotlin"])
+            artifactId = "zrok-api"
+        }
+    }
 }
 
 // Se compila con el JDK actual (21) emitiendo bytecode Java 17, consumible

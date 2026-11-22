@@ -1,5 +1,9 @@
 # zrok-kotlin-sdk
 
+[![Release](https://img.shields.io/github/v/release/aldan9610/zrok-kotlin-sdk?label=release)](https://github.com/aldan9610/zrok-kotlin-sdk/releases)
+[![Build](https://github.com/aldan9610/zrok-kotlin-sdk/actions/workflows/build.yml/badge.svg)](https://github.com/aldan9610/zrok-kotlin-sdk/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 SDK de **Kotlin/Android** para [zrok](https://github.com/openziti/zrok): compartición segura de
 servicios y túneles TCP sobre redes [OpenZiti](https://openziti.io).
 
@@ -47,17 +51,30 @@ El SDK cubre las **dos capas** de zrok:
 
 ### 1. Dependencias
 
+Añade el repositorio de [JitPack](https://jitpack.io) y la coordenada del módulo
+(la librería se publica por módulo; la versión es el tag del
+[release](https://github.com/aldan9610/zrok-kotlin-sdk/releases)):
+
 ```kotlin
 // settings.gradle.kts
 dependencyResolutionManagement {
-    repositories { mavenCentral(); google() }
+    repositories {
+        mavenCentral()
+        google()
+        maven("https://jitpack.io") // com.github.aldan9610.zrok-kotlin-sdk
+    }
 }
 
 // build.gradle.kts del módulo
 dependencies {
-    implementation("io.github.aldan9610.zrok:zrok-android:$version") // o project(":zrok-android")
+    implementation("com.github.aldan9610.zrok-kotlin-sdk:zrok-android:v0.1.0")
 }
 ```
+
+Alternativa sin Gradle: descarga el AAR (`zrok-android-v0.1.0.aar`) desde los
+assets del [release v0.1.0](https://github.com/aldan9610/zrok-kotlin-sdk/releases/tag/v0.1.0)
+y ponlo en `libs/` (necesitarás añadir también sus dependencias transitivas:
+`ziti-android`, `security-crypto`, `coroutines-android` y Ktor).
 
 Declara los permisos del servicio en tu `AndroidManifest.xml` (el del SDK ya los
 declara; si tu app los sobrescribe, incluye):

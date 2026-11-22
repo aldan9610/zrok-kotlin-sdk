@@ -1,6 +1,16 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    `maven-publish`
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["kotlin"])
+            artifactId = "zrok-core"
+        }
+    }
 }
 
 // Igual que zrok-api: se compila con el JDK actual emitiendo bytecode Java 17,

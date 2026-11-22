@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle-home/
+
+# Entorno local (no es parte del proyecto)
+local.properties
+.android-sdk/
+*.iml
+.idea/
+*.swp
+
+# Kotlin
+*.class
+kotlin-js-store/
+
+# Android (generados por el build)
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Secretos y credenciales — NUNCA confirmar
+*.jks
+*.p12
+*.pem
+*.key
+secrets.properties

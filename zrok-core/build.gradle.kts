@@ -19,6 +19,9 @@ kotlin {
 dependencies {
     api(project(":zrok-api"))
     api(libs.kotlinx.coroutines.core)
+    // ziti-jvm: versión 0.25.1 alineada con org.openziti:ziti-android:0.30.0 para
+    // que JVM y Android compartan exactamente la misma implementación de ziti.
+    implementation(libs.ziti.jvm)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)

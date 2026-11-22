@@ -10,6 +10,7 @@ zitiAndroid = "0.30.0"
 agp = "8.6.1"
 openapiGenerator = "7.27.0"
 junit = "5.10.2"
+junitPlatform = "1.10.2"
 androidxCore = "1.13.1"
 androidxAppcompat = "1.7.0"
 androidxSecurity = "1.1.0-alpha06"
@@ -31,7 +32,7 @@ ziti-jvm = { module = "org.openziti:ziti", version.ref = "ziti" }
 ziti-android = { module = "org.openziti:ziti-android", version.ref = "zitiAndroid" }
 slf4j-nop = { module = "org.slf4j:slf4j-nop", version = "2.0.13" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }

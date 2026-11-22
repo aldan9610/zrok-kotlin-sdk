@@ -12,5 +12,5 @@ plugins {
 // con este grupo cuando se consuma desde Maven Central u otro repositorio.
 allprojects {
     group = "io.github.aldan9610.zrok"
-    version = "0.1.0"
+    version = "0.2.0"
 }

@@ -67,12 +67,12 @@ dependencyResolutionManagement {
 
 // build.gradle.kts del módulo
 dependencies {
-    implementation("com.github.aldan9610.zrok-kotlin-sdk:zrok-android:v0.1.0")
+    implementation("com.github.aldan9610.zrok-kotlin-sdk:zrok-android:v0.2.0")
 }
 ```
 
-Alternativa sin Gradle: descarga el AAR (`zrok-android-v0.1.0.aar`) desde los
-assets del [release v0.1.0](https://github.com/aldan9610/zrok-kotlin-sdk/releases/tag/v0.1.0)
+Alternativa sin Gradle: descarga el AAR (`zrok-android-v0.2.0.aar`) desde los
+assets del [release v0.2.0](https://github.com/aldan9610/zrok-kotlin-sdk/releases/tag/v0.2.0)
 y ponlo en `libs/` (necesitarás añadir también sus dependencias transitivas:
 `ziti-android`, `security-crypto`, `coroutines-android` y Ktor).
 
@@ -252,18 +252,80 @@ endpoints. El estado es observable con `ZrokTunnelService.state`
 ./gradlew :zrok-core:test
 ```
 
-22 tests sin red zrok real: servidor HTTP local que verifica cabeceras y
+33 tests sin red zrok real: servidor HTTP local que verifica cabeceras y
 cuerpos exactos de la API (`x-token`, `application/zrok.v1+json`), y un
 `FakeZitiGateway` sobre canales asíncronos reales de loopback que ejercita el
-piping bidireccional completo del túnel.
+piping bidireccional completo del túnel TCP, el handshake SOCKS5 (no-auth,
+auth RFC 1929, rechazo de BIND), el túnel UDP con framing de prefijo de
+longitud (ida y vuelta + flujos independientes) y el servidor WebDAV del
+backend drive (PROPFIND, GET, PUT, MKCOL, DELETE, path traversal).
 
-## Límites actuales (v0.1)
+## Novedades de v0.2.0
 
-- Los shares `udpTunnel`/`caddy`/`drive`/`socks` pueden crearse por REST, pero
-  el plano de datos de este SDK solo transporta TCP (`tcpTunnel`, proxy y web
-  van sobre TCP).
-- El `proxy` público del lado *frontend* lo sirven los frontends de la
-  instancia zrok; el SDK solo necesita mantener el listener del share.
+Además del `tcpTunnel`/`proxy`/`web` de v0.1, el plano de datos transporta
+tres backends más:
+
+### SOCKS5 — comparte la IP del dispositivo
+
+El backend `socks` expone un proxy SOCKS5 (RFC 1928, solo CONNECT) cuya
+salida es la red del host que comparte. Un navegador remoto que use el
+endpoint del share como proxy SOCKS5 navega con la IP de este dispositivo.
+
+```kotlin
+val share = manager.createSocksShare(isPrivate = false)        // share público
+tunnel.hostSocks(share.token, username = "u", password = "p")  // auth RFC 1929 opcional
+```
+
+En Android, `ZrokTunnelService.startSocksTunnel(context, share.token, user, pass)`
+mantiene el proxy en un ForegroundService con reconexión automática. La app
+de ejemplo lleva un botón «Compartir tu IP como proxy SOCKS5» que crea el
+share y muestra el endpoint para apuntar el navegador del dispositivo remoto.
+
+### UDP — udpTunnel
+
+`udpTunnel` con framing de prefijo de longitud (2 bytes BE) sobre el stream
+ziti. Funciona para shares privados entre dos extremos que usen este SDK:
+
+```kotlin
+manager.createUdpTunnelShare("127.0.0.1", 53, isPrivate = true)
+tunnel.hostUdpTunnel(share.token, "127.0.0.1", 53)             // lado host
+// en el dispositivo access:
+tunnel.startUdpAccess(share.token)                             // 127.0.0.1:boundPort
+```
+
+`ZrokTunnelService.startUdpHostTunnel` / `startUdpAccess` para Android.
+
+### Drive — WebDAV
+
+El backend `drive` sirve un directorio como WebDAV (RFC 4918 subset:
+OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY). Montable desde
+el Explorador de Windows, Cyberduck, rclone o Finder a través del endpoint
+del share:
+
+```kotlin
+manager.createDriveShare("/data/docs", isPrivate = false)
+tunnel.hostDrive(share.token, "/data/docs")
+```
+
+`ZrokTunnelService.startDriveTunnel(context, share.token, rootPath)`.
+
+## Límites actuales (v0.2)
+
+- **UDP público**: el SDK Go de zrok confía en que el ziti-go-sdk preserva los
+  límites de datagrama en `Read`/`Write` del `net.Conn` ziti. ziti-jvm 0.25.1
+  no expone eso: su `AsynchronousSocketChannel` es de stream y un `read`
+  fusiona varios mensajes ziti en el buffer. Por eso el UDP de este SDK
+  enmarca cada datagrama con un prefijo de longitud de 2 bytes sobre el
+  stream, y **solo funciona cuando el host y el access usan ambos este SDK
+  Kotlin** (shares privados entre dos extremos Kotlin). Un share `udpTunnel`
+  público cuyo host enfrente al frontend público de zrok requiere el binario
+  Go `zrok` como host (el frontend público envía datagramas con el framing
+  nativo de ziti). Es una limitación de ziti-jvm, no del protocolo zrok.
+- **SOCKS5**: solo el comando CONNECT (lo que usa un navegador para HTTP/HTTPS).
+  BIND y UDP ASSOCIATE se rechazan con `commandNotSupported`.
+- **Drive**: sin bloqueos WebDAV (LOCK/UNLOCK); los clientes caen a modo sin
+  bloqueos. Una petición HTTP por conexión ziti (estilo HTTP/1.0).
+- `caddy` sigue siendo solo REST (no hay plano de datos); no se planea.
 - No hay soporte de MFA ni de organizaciones/agentes de la API v2 (el cliente
   generado los expone; la fachada no).
 

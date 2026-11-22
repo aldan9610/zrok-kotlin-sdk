@@ -1,0 +1,38 @@
+name: mirror-codeberg
+
+# Backup dinámico hacia Codeberg (Codeberg deshabilitó la creación de
+# nuevos pull mirrors, así que el espejo se empuja desde GitHub).
+# Se ejecuta en cada push a main, en cada tag v* y cada hora como red
+# de seguridad. El push es --force --prune: Codeberg queda espejado
+# exactamente a las refs de GitHub (ramas y tags).
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  schedule:
+    - cron: '13 * * * *'
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout completo (historial, ramas y tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # actions/checkout trae las ramas como refs remotas; se mapean a un
+      # namespace temporal para poder empujarlas como refs/heads del espejo.
+      - name: Volcar ramas y tags a namespace temporal
+        run: git fetch --prune origin "+refs/heads/*:refs/backup/heads/*" "+refs/tags/*:refs/backup/tags/*"
+
+      - name: Empujar espejo a Codeberg (force + prune)
+        env:
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: |
+          git push --force --prune \
+            "https://seguridad-social:${CODEBERG_TOKEN}@codeberg.org/seguridad-social/zrok-kotlin-sdk.git" \
+            "+refs/backup/heads/*:refs/heads/*" \
+            "+refs/backup/tags/*:refs/tags/*"

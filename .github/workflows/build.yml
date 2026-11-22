@@ -17,9 +17,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
+      # El SDK de Android ya viene preinstalado en los runners de GitHub
+      # (ANDROID_HOME=/usr/local/lib/android/sdk, licencias aceptadas);
+      # android-actions/setup-android@v3 falla porque el paquete 'tools'
+      # ya no existe en el repositorio del SDK.
       - name: Build y tests (JVM + Android)
         run: ./gradlew build :zrok-android:assembleRelease :sample-android:assembleDebug --stacktrace
 

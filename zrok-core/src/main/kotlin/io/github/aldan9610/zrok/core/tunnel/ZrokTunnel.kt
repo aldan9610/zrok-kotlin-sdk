@@ -79,6 +79,42 @@ class ZrokTunnel(
     }
 
     /**
+     * Lado host de un share `udpTunnel`: acepta conexiones ziti y transporta
+     * datagramas hacia/desde el backend UDP local [targetHost]:[targetPort]
+     * usando el framing de prefijo de longitud (ver [ZrokUdpTunnelServer]).
+     *
+     * Requiere que el access también use este SDK Kotlin (framing propio). Para
+     * shares udpTunnel públicos use el binario Go `zrok` como host.
+     */
+    fun hostUdpTunnel(share: Share): ZrokUdpTunnelServer {
+        val target = requireNotNull(share.target) { "el share no tiene target (host:puerto)" }
+        val (host, port) = parseHostPort(target)
+        return hostUdpTunnel(share.token, host, port)
+    }
+
+    fun hostUdpTunnel(
+        shareToken: String,
+        targetHost: String,
+        targetPort: Int,
+    ): ZrokUdpTunnelServer {
+        val server = gateway().host(shareToken)
+        return ZrokUdpTunnelServer(server, targetHost, targetPort, scope).also { endpoints.add(it) }
+    }
+
+    /**
+     * Lado access de un share `udpTunnel` privado: abre un listener UDP local
+     * (puerto efímero si [localPort] es 0) y transporta cada datagrama al share
+     * remoto. La app envía UDP a 127.0.0.1:[ZrokUdpTunnelAccess.boundPort].
+     *
+     * Requiere que el host también use este SDK Kotlin (framing propio).
+     */
+    fun startUdpAccess(shareToken: String, localPort: Int = 0): ZrokUdpTunnelAccess {
+        val access = ZrokUdpTunnelAccess(localPort, { gateway().dial(shareToken) }, scope)
+        endpoints.add(access)
+        return access
+    }
+
+    /**
      * Conecta directamente con el servicio ziti del share y devuelve la conexión
      * con streams bloqueantes listos para leer y escribir.
      */

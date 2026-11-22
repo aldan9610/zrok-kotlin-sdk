@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build y tests (JVM + Android)
+        run: ./gradlew build :zrok-android:assembleRelease :sample-android:assembleDebug --stacktrace
+
+      - name: Subir APK de ejemplo
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-apk
+          path: sample-android/build/outputs/apk/debug/*.apk

@@ -19,9 +19,13 @@ import io.github.aldan9610.zrok.android.EncryptedZrokStateStore
 import io.github.aldan9610.zrok.android.R
 import io.github.aldan9610.zrok.core.ZrokConfig
 import io.github.aldan9610.zrok.core.ZrokEnvironment
+import io.github.aldan9610.zrok.core.tunnel.ZrokDriveServer
 import io.github.aldan9610.zrok.core.tunnel.ZrokLocalAccess
+import io.github.aldan9610.zrok.core.tunnel.ZrokSocksServer
 import io.github.aldan9610.zrok.core.tunnel.ZrokTunnel
 import io.github.aldan9610.zrok.core.tunnel.ZrokTunnelServer
+import io.github.aldan9610.zrok.core.tunnel.ZrokUdpTunnelAccess
+import io.github.aldan9610.zrok.core.tunnel.ZrokUdpTunnelServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,11 +57,16 @@ sealed class ZrokTunnelServiceState {
  * persistente (requisito de Android para trabajo en segundo plano) y
  * reconexión automática cuando cambia la red (Wi-Fi <-> datos móviles).
  *
- * Dos modos de uso, lanzados con los helpers estáticos:
- *  - Host (compartir): [startHostTunnel] — escucha en el servicio ziti del
- *    share y reenvía al backend local.
- *  - Access (consumir): [startLocalAccess] — puentea un puerto local hacia un
- *    share privado de otro dispositivo/usuario.
+ * Modos de uso, lanzados con los helpers estáticos:
+ *  - Host TCP (compartir): [startHostTunnel] — reenvía al backend TCP local.
+ *  - Access TCP (consumir): [startLocalAccess] — puentea un puerto local hacia
+ *    un share privado tcpTunnel.
+ *  - SOCKS (compartir IP): [startSocksTunnel] — proxy SOCKS5 que sale con la
+ *    red del dispositivo; un navegador remoto que use el endpoint como proxy
+ *    SOCKS5 navega con la IP de este dispositivo.
+ *  - Host UDP: [startUdpHostTunnel] — backend udpTunnel (ambos extremos Kotlin).
+ *  - Access UDP: [startUdpAccess] — puerto UDP local hacia un share udpTunnel.
+ *  - Drive: [startDriveTunnel] — sirve un directorio como WebDAV.
  *
  * Requiere un entorno previamente habilitado con
  * [io.github.aldan9610.zrok.core.ZrokEnvironment.enable] persistido en
@@ -68,12 +77,19 @@ class ZrokTunnelService : LifecycleService() {
     private var tunnel: ZrokTunnel? = null
     private var server: ZrokTunnelServer? = null
     private var access: ZrokLocalAccess? = null
+    private var socksServer: ZrokSocksServer? = null
+    private var udpServer: ZrokUdpTunnelServer? = null
+    private var udpAccess: ZrokUdpTunnelAccess? = null
+    private var driveServer: ZrokDriveServer? = null
 
     private var mode = MODE_HOST
     private var shareToken: String? = null
     private var targetHost: String? = null
     private var targetPort = 0
     private var localPort = 0
+    private var socksUser: String? = null
+    private var socksPass: String? = null
+    private var driveRoot: String? = null
     private var channelId = DEFAULT_CHANNEL_ID
     private var channelName = DEFAULT_CHANNEL_NAME
 
@@ -97,6 +113,9 @@ class ZrokTunnelService : LifecycleService() {
         targetHost = intent.getStringExtra(EXTRA_TARGET_HOST)
         targetPort = intent.getIntExtra(EXTRA_TARGET_PORT, 0)
         localPort = intent.getIntExtra(EXTRA_LOCAL_PORT, 0)
+        socksUser = intent.getStringExtra(EXTRA_SOCKS_USER)
+        socksPass = intent.getStringExtra(EXTRA_SOCKS_PASS)
+        driveRoot = intent.getStringExtra(EXTRA_DRIVE_ROOT)
         channelId = intent.getStringExtra(EXTRA_CHANNEL_ID) ?: DEFAULT_CHANNEL_ID
         channelName = intent.getStringExtra(EXTRA_CHANNEL_NAME) ?: DEFAULT_CHANNEL_NAME
 
@@ -124,24 +143,49 @@ class ZrokTunnelService : LifecycleService() {
                 if (!environment.isEnabled) {
                     throw IllegalStateException("no hay entorno zrok habilitado: llama a ZrokEnvironment.enable() primero")
                 }
-                val zrokTunnel = ZrokTunnel(environment)
-                when (mode) {
-                    MODE_HOST -> {
-                        val host = requireNotNull(targetHost) { "falta EXTRA_TARGET_HOST" }
-                        require(targetPort > 0) { "EXTRA_TARGET_PORT invalido" }
-                        server = zrokTunnel.hostTcpTunnel(token, host, targetPort)
-                    }
-                    MODE_ACCESS -> {
-                        access = zrokTunnel.startLocalAccess(token, localPort)
-                    }
-                }
-                tunnel = zrokTunnel
+                tunnel = openEndpoints(ZrokTunnel(environment), token)
             }
-            _state.value = ZrokTunnelServiceState.Running(descriptionFor(mode, token), access?.localPort)
+            _state.value = ZrokTunnelServiceState.Running(descriptionFor(mode, token), localPortForRunning())
             startAsForeground(successNotificationText(token))
         } catch (t: Throwable) {
             fail("no se pudo abrir el túnel", t)
         }
+    }
+
+    /** Abre los endpoints del modo actual sobre [zrokTunnel] y los devuelve. */
+    private fun openEndpoints(zrokTunnel: ZrokTunnel, token: String): ZrokTunnel {
+        when (mode) {
+            MODE_HOST -> {
+                val host = requireNotNull(targetHost) { "falta EXTRA_TARGET_HOST" }
+                require(targetPort > 0) { "EXTRA_TARGET_PORT invalido" }
+                server = zrokTunnel.hostTcpTunnel(token, host, targetPort)
+            }
+            MODE_ACCESS -> {
+                access = zrokTunnel.startLocalAccess(token, localPort)
+            }
+            MODE_SOCKS -> {
+                socksServer = zrokTunnel.hostSocks(token, socksUser?.takeIf { it.isNotBlank() }, socksPass)
+            }
+            MODE_UDP_HOST -> {
+                val host = requireNotNull(targetHost) { "falta EXTRA_TARGET_HOST" }
+                require(targetPort > 0) { "EXTRA_TARGET_PORT invalido" }
+                udpServer = zrokTunnel.hostUdpTunnel(token, host, targetPort)
+            }
+            MODE_UDP_ACCESS -> {
+                udpAccess = zrokTunnel.startUdpAccess(token, localPort)
+            }
+            MODE_DRIVE -> {
+                val root = requireNotNull(driveRoot) { "falta EXTRA_DRIVE_ROOT" }
+                driveServer = zrokTunnel.hostDrive(token, root)
+            }
+        }
+        return zrokTunnel
+    }
+
+    private fun localPortForRunning(): Int? = when (mode) {
+        MODE_ACCESS -> access?.localPort
+        MODE_UDP_ACCESS -> udpAccess?.boundPort
+        else -> null
     }
 
     /** Reconexión: recrea el túnel completo cuando la red vuelve tras una pérdida. */
@@ -156,17 +200,8 @@ class ZrokTunnelService : LifecycleService() {
                     config = ZrokConfig(),
                     stateStore = EncryptedZrokStateStore(applicationContext),
                 )
-                val zrokTunnel = ZrokTunnel(environment)
-                when (mode) {
-                    MODE_HOST -> {
-                        server = zrokTunnel.hostTcpTunnel(token, requireNotNull(targetHost), targetPort)
-                    }
-                    MODE_ACCESS -> {
-                        access = zrokTunnel.startLocalAccess(token, localPort)
-                    }
-                }
-                tunnel = zrokTunnel
-                _state.value = ZrokTunnelServiceState.Running(descriptionFor(mode, token), access?.localPort)
+                tunnel = openEndpoints(ZrokTunnel(environment), token)
+                _state.value = ZrokTunnelServiceState.Running(descriptionFor(mode, token), localPortForRunning())
             } catch (t: Throwable) {
                 _state.value = ZrokTunnelServiceState.Failed("reconexion fallida", t.message)
             }
@@ -199,9 +234,17 @@ class ZrokTunnelService : LifecycleService() {
     private fun closeTunnelEndpoints() {
         runCatching { server?.close() }
         runCatching { access?.close() }
+        runCatching { socksServer?.close() }
+        runCatching { udpServer?.close() }
+        runCatching { udpAccess?.close() }
+        runCatching { driveServer?.close() }
         runCatching { tunnel?.close() }
         server = null
         access = null
+        socksServer = null
+        udpServer = null
+        udpAccess = null
+        driveServer = null
         tunnel = null
     }
 
@@ -247,11 +290,16 @@ class ZrokTunnelService : LifecycleService() {
 
     private fun successNotificationText(token: String): String = when (mode) {
         MODE_ACCESS -> getString(R.string.zrok_tunnel_access_running, token, access?.localPort ?: localPort)
+        MODE_UDP_ACCESS -> getString(R.string.zrok_tunnel_access_running, token, udpAccess?.boundPort ?: localPort)
         else -> getString(R.string.zrok_tunnel_host_running, token)
     }
 
     private fun descriptionFor(mode: Int, token: String): String = when (mode) {
         MODE_ACCESS -> "access $token"
+        MODE_SOCKS -> "socks $token"
+        MODE_UDP_HOST -> "udp-host $token"
+        MODE_UDP_ACCESS -> "udp-access $token"
+        MODE_DRIVE -> "drive $token"
         else -> "host $token"
     }
 
@@ -284,6 +332,9 @@ class ZrokTunnelService : LifecycleService() {
         const val EXTRA_TARGET_HOST = "io.github.aldan9610.zrok.android.EXTRA_TARGET_HOST"
         const val EXTRA_TARGET_PORT = "io.github.aldan9610.zrok.android.EXTRA_TARGET_PORT"
         const val EXTRA_LOCAL_PORT = "io.github.aldan9610.zrok.android.EXTRA_LOCAL_PORT"
+        const val EXTRA_SOCKS_USER = "io.github.aldan9610.zrok.android.EXTRA_SOCKS_USER"
+        const val EXTRA_SOCKS_PASS = "io.github.aldan9610.zrok.android.EXTRA_SOCKS_PASS"
+        const val EXTRA_DRIVE_ROOT = "io.github.aldan9610.zrok.android.EXTRA_DRIVE_ROOT"
         const val EXTRA_CHANNEL_ID = "io.github.aldan9610.zrok.android.EXTRA_CHANNEL_ID"
         const val EXTRA_CHANNEL_NAME = "io.github.aldan9610.zrok.android.EXTRA_CHANNEL_NAME"
 
@@ -291,6 +342,10 @@ class ZrokTunnelService : LifecycleService() {
 
         const val MODE_HOST = 0
         const val MODE_ACCESS = 1
+        const val MODE_SOCKS = 2
+        const val MODE_UDP_HOST = 3
+        const val MODE_UDP_ACCESS = 4
+        const val MODE_DRIVE = 5
 
         const val DEFAULT_CHANNEL_ID = "zrok_tunnel"
         const val DEFAULT_CHANNEL_NAME = "Túnel zrok"
@@ -301,7 +356,7 @@ class ZrokTunnelService : LifecycleService() {
         /** Estado actual del servicio (observable desde la UI). */
         val state: StateFlow<ZrokTunnelServiceState> get() = _state
 
-        /** Lanza el servicio en modo host (compartir un servicio local). */
+        /** Lanza el servicio en modo host TCP (compartir un servicio local). */
         fun startHostTunnel(
             context: Context,
             shareToken: String,
@@ -320,7 +375,7 @@ class ZrokTunnelService : LifecycleService() {
             ContextCompat.startForegroundService(context, intent)
         }
 
-        /** Lanza el servicio en modo access (consumir un share privado). */
+        /** Lanza el servicio en modo access TCP (consumir un share privado). */
         fun startLocalAccess(
             context: Context,
             shareToken: String,
@@ -332,6 +387,90 @@ class ZrokTunnelService : LifecycleService() {
                 .putExtra(EXTRA_MODE, MODE_ACCESS)
                 .putExtra(EXTRA_SHARE_TOKEN, shareToken)
                 .putExtra(EXTRA_LOCAL_PORT, localPort)
+                .putExtra(EXTRA_CHANNEL_ID, channelId)
+                .putExtra(EXTRA_CHANNEL_NAME, channelName)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /**
+         * Lanza el servicio en modo SOCKS: el dispositivo comparte su IP como
+         * proxy SOCKS5. Un navegador que use el endpoint del share como proxy
+         * SOCKS5 navega con la IP de este dispositivo.
+         *
+         * @param socksUser usuario opcional (RFC 1929); null = sin auth. En
+         * shares públicos recomienda usarlo para no dejar un proxy abierto.
+         * @param socksPass contraseña opcional (ignorada si [socksUser] es null).
+         */
+        fun startSocksTunnel(
+            context: Context,
+            shareToken: String,
+            socksUser: String? = null,
+            socksPass: String? = null,
+            channelId: String = DEFAULT_CHANNEL_ID,
+            channelName: String = DEFAULT_CHANNEL_NAME,
+        ) {
+            val intent = baseIntent(context)
+                .putExtra(EXTRA_MODE, MODE_SOCKS)
+                .putExtra(EXTRA_SHARE_TOKEN, shareToken)
+                .putExtra(EXTRA_SOCKS_USER, socksUser)
+                .putExtra(EXTRA_SOCKS_PASS, socksPass)
+                .putExtra(EXTRA_CHANNEL_ID, channelId)
+                .putExtra(EXTRA_CHANNEL_NAME, channelName)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** Lanza el servicio en modo host UDP (backend udpTunnel, extremo Kotlin). */
+        fun startUdpHostTunnel(
+            context: Context,
+            shareToken: String,
+            targetHost: String,
+            targetPort: Int,
+            channelId: String = DEFAULT_CHANNEL_ID,
+            channelName: String = DEFAULT_CHANNEL_NAME,
+        ) {
+            val intent = baseIntent(context)
+                .putExtra(EXTRA_MODE, MODE_UDP_HOST)
+                .putExtra(EXTRA_SHARE_TOKEN, shareToken)
+                .putExtra(EXTRA_TARGET_HOST, targetHost)
+                .putExtra(EXTRA_TARGET_PORT, targetPort)
+                .putExtra(EXTRA_CHANNEL_ID, channelId)
+                .putExtra(EXTRA_CHANNEL_NAME, channelName)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /** Lanza el servicio en modo access UDP (puerto UDP local hacia un share udpTunnel). */
+        fun startUdpAccess(
+            context: Context,
+            shareToken: String,
+            localPort: Int = 0,
+            channelId: String = DEFAULT_CHANNEL_ID,
+            channelName: String = DEFAULT_CHANNEL_NAME,
+        ) {
+            val intent = baseIntent(context)
+                .putExtra(EXTRA_MODE, MODE_UDP_ACCESS)
+                .putExtra(EXTRA_SHARE_TOKEN, shareToken)
+                .putExtra(EXTRA_LOCAL_PORT, localPort)
+                .putExtra(EXTRA_CHANNEL_ID, channelId)
+                .putExtra(EXTRA_CHANNEL_NAME, channelName)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /**
+         * Lanza el servicio en modo drive: sirve [driveRoot] como WebDAV a
+         * través del share. Montable desde el Explorador de Windows, Cyberduck,
+         * rclone o Finder vía el endpoint del share.
+         */
+        fun startDriveTunnel(
+            context: Context,
+            shareToken: String,
+            driveRoot: String,
+            channelId: String = DEFAULT_CHANNEL_ID,
+            channelName: String = DEFAULT_CHANNEL_NAME,
+        ) {
+            val intent = baseIntent(context)
+                .putExtra(EXTRA_MODE, MODE_DRIVE)
+                .putExtra(EXTRA_SHARE_TOKEN, shareToken)
+                .putExtra(EXTRA_DRIVE_ROOT, driveRoot)
                 .putExtra(EXTRA_CHANNEL_ID, channelId)
                 .putExtra(EXTRA_CHANNEL_NAME, channelName)
             ContextCompat.startForegroundService(context, intent)

@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
     private lateinit var accessInfo: TextView
+    private lateinit var socksInfo: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
         status = findViewById(R.id.status)
         accessInfo = findViewById(R.id.access_info)
+        socksInfo = findViewById(R.id.socks_info)
 
         environment = ZrokEnvironment(stateStore = EncryptedZrokStateStore(this))
         if (environment.isEnabled) {
@@ -52,9 +54,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_enable).setOnClickListener { enableEnvironment() }
         findViewById<Button>(R.id.btn_share).setOnClickListener { shareService() }
         findViewById<Button>(R.id.btn_access).setOnClickListener { accessShare() }
+        findViewById<Button>(R.id.btn_socks).setOnClickListener { shareSocks() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener {
             ZrokTunnelService.stop(this)
             accessInfo.text = ""
+            socksInfo.text = ""
         }
     }
 
@@ -122,6 +126,34 @@ class MainActivity : AppCompatActivity() {
                 accessInfo.text = "Access ${access.token} creado; puente iniciándose…"
             } catch (t: Throwable) {
                 toast("Error al acceder: ${t.message}")
+            }
+        }
+    }
+
+    private fun shareSocks() {
+        val m = manager
+        if (m == null) {
+            toast("Primero habilita el entorno")
+            return
+        }
+        val user = findViewById<EditText>(R.id.socks_user).text.toString().trim().takeIf { it.isNotEmpty() }
+        val pass = findViewById<EditText>(R.id.socks_pass).text.toString()
+        lifecycleScope.launch {
+            try {
+                // Share SOCKS público: el navegador remoto apunta al endpoint
+                // del share como proxy SOCKS5 y su tráfico sale con la IP de
+                // este dispositivo. La auth (opcional) va a nivel SOCKS5
+                // (RFC 1929), gestionada por ZrokSocksServer — no en el
+                // frontend de zrok (que es para HTTP).
+                val share = m.createSocksShare(isPrivate = false)
+                currentShare = share
+                ZrokTunnelService.startSocksTunnel(this@MainActivity, share.token, user, pass)
+                val endpoints = share.frontendEndpoints.joinToString("\n").ifEmpty { share.token }
+                socksInfo.text = "Proxy SOCKS5 público:\n$endpoints\n" +
+                    "Configura ese host:puerto como proxy SOCKS5 en el navegador del dispositivo remoto."
+                toast("Share SOCKS creado: ${share.token}")
+            } catch (t: Throwable) {
+                toast("Error al compartir SOCKS: ${t.message}")
             }
         }
     }

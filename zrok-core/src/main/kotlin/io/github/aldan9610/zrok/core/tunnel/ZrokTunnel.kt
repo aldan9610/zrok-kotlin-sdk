@@ -60,6 +60,25 @@ class ZrokTunnel(
     }
 
     /**
+     * Lado host de un share `socks`: acepta conexiones ziti y les habla SOCKS5
+     * (solo CONNECT), abriendo cada destino con la red del host. Así el host
+     * comparte su IP: un navegador que use el endpoint del share como proxy
+     * SOCKS5 sale con la IP de esta máquina.
+     *
+     * @param username usuario opcional (RFC 1929). Recomendado en shares
+     * públicos para no dejar un proxy abierto; null = sin auth.
+     * @param password contraseña opcional (ignorada si [username] es null).
+     */
+    fun hostSocks(
+        shareToken: String,
+        username: String? = null,
+        password: String? = null,
+    ): ZrokSocksServer {
+        val server = gateway().host(shareToken)
+        return ZrokSocksServer(server, username, password, scope).also { endpoints.add(it) }
+    }
+
+    /**
      * Conecta directamente con el servicio ziti del share y devuelve la conexión
      * con streams bloqueantes listos para leer y escribir.
      */

@@ -83,6 +83,45 @@ class ZrokManager internal constructor(
     )
 
     /**
+     * Crea un share de backend `socks`: expone un proxy SOCKS5 cuya salida es la
+     * red del host que comparte. Un cliente remoto (un navegador) que use el
+     * endpoint del share como proxy SOCKS5 navega con la IP de este host.
+     *
+     * El target del share es vacío: el destino lo decide cada CONNECT del cliente
+     * SOCKS (igual que `zrok share socks` no toma target).
+     *
+     * Para shares públicos conviene añadir auth ([ShareOptions.basicAuth] o un
+     * [io.github.aldan9610.zrok.core.model.ShareOptions.permissionMode] "closed")
+     * para no dejar un proxy abierto.
+     */
+    suspend fun createSocksShare(
+        isPrivate: Boolean = false,
+        options: ShareOptions = ShareOptions(),
+    ): Share = createShare(
+        BackendMode.SOCKS,
+        "",
+        if (isPrivate) ShareMode.PRIVATE else ShareMode.PUBLIC,
+        options,
+    )
+
+    /**
+     * Crea un share de backend `drive`: sirve el directorio [rootPath] como un
+     * WebDAV accesible desde cualquier cliente WebDAV (Explorador de Windows,
+     * Cyberduck, rclone, Finder) a través del endpoint del share. Usar junto a
+     * [ZrokTunnel.hostDrive] para el plano de datos.
+     */
+    suspend fun createDriveShare(
+        rootPath: String,
+        isPrivate: Boolean = false,
+        options: ShareOptions = ShareOptions(),
+    ): Share = createShare(
+        BackendMode.DRIVE,
+        rootPath,
+        if (isPrivate) ShareMode.PRIVATE else ShareMode.PUBLIC,
+        options,
+    )
+
+    /**
      * Crea un share arbitrario (caso general de los métodos de conveniencia).
      */
     suspend fun createShare(

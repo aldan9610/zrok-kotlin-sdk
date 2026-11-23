@@ -1,13 +1,13 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.serialization)
     `maven-publish`
 }
 
 android {
     namespace = "io.github.aldan9610.zrok.android"
-    compileSdk = 34
+    // compileSdk 37: requisito de ziti-android 0.36.0 (minCompileSdk=37 en su
+    // aar-metadata) y de okhttp-android 5.5.1. AGP 9.3.1 soporta API 37.
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
@@ -20,11 +20,8 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
-    }
-}
+// Built-in Kotlin de AGP 9: no se aplica org.jetbrains.kotlin.android y el
+// jvmTarget de Kotlin hereda de targetCompatibility (21).
 
 dependencies {
     api(project(":zrok-core"))

@@ -42,10 +42,11 @@ El SDK cubre las **dos capas** de zrok:
 
 ## Requisitos
 
-- **Android**: minSdk 26, compileSdk 34.
+- **Android**: minSdk 26, compileSdk 37 (requisito de ziti-android 0.36.0),
+  targetSdk 34 en la app de ejemplo.
 - **JVM**: Java 21+ (requisito de ziti-jvm 0.36.0, que se publica con bytecode
   Java 21).
-- Para compilar: JDK 21+, Android SDK (platform 34). Los tests de `zrok-core` no
+- Para compilar: JDK 21+, Android SDK (platform 37). Los tests de `zrok-core` no
   necesitan Android.
 
 ## Inicio rápido en Android

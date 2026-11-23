@@ -20,7 +20,15 @@ usa [Versionado Semántico](https://semver.org/lang/es/).
 - Todo el SDK se compila ahora con bytecode Java 21 (antes Java 17): ziti-jvm
   0.36.0 se publica con bytecode Java 21 y el runtime JVM requiere Java 21+.
 - Kotlin 2.0.21 → 2.4.21, requerido por los metadatos de Kotlin 2.4 de
-  ziti-jvm 0.36.0 (compatible con AGP 8.6.1 y Gradle 8.14.3).
+  ziti-jvm 0.36.0 (compatible con AGP 9.3.1 y Gradle 9.5.0).
+- Android: compileSdk 34 → 37 (ziti-android 0.36.0 declara `minCompileSdk=37`
+  en su aar-metadata, igual que su dependencia okhttp-android 5.5.1). Esto
+  obliga a subir AGP 8.6.1 → 9.3.1 (el máximo API de AGP 8.13 es 36) y Gradle
+  8.14.3 → 9.5.0 (mínimo de AGP 9.3). Los módulos Android migran al Kotlin
+  integrado de AGP 9 (sin `org.jetbrains.kotlin.android`; el `jvmTarget` de
+  Kotlin hereda de `compileOptions.targetCompatibility`) y `zrok-android`
+  deja de aplicar el plugin `kotlin-serialization` (no declara ninguna clase
+  `@Serializable` propia; el runtime llega vía `zrok-api`).
 
 ## [0.2.0] — 2026-11-22
 

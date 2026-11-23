@@ -14,6 +14,12 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    // AGP 9 ya no registra SoftwareComponent automáticos: la variante a
+    // publicar se declara aquí y el bloque afterEvaluate de más abajo la usa.
+    publishing {
+        singleVariant("release")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21

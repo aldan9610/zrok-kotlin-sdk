@@ -4,6 +4,24 @@ Todos los cambios notables de este proyecto se documentan aquí. El formato
 sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el proyecto
 usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Cambiado
+
+- Plano de datos actualizado a `org.openziti:ziti` 0.36.0 (antes 0.25.1) y
+  `org.openziti:ziti-android` 0.36.0 (antes 0.30.0). Ambos artefactos dependen
+  de ziti 0.36.0, así que JVM y Android siguen compartiendo la misma
+  implementación. La superficie de ziti que usa `ZitiGateway`
+  (`Ziti.newContext`, `open`/`openServer`/`destroy`, `ZitiAddress.Bind`/`Dial`)
+  no cambió. Notas de la versión de ziti: el hosting de un servicio se
+  registra en varios edge routers (hasta `maxTerminators`, 3 por defecto) y el
+  tráfico con el controller va sobre OkHttp (compatible con Android); el
+  registro multi-router requiere un controller OpenZiti v0.34.0 o posterior.
+- Todo el SDK se compila ahora con bytecode Java 21 (antes Java 17): ziti-jvm
+  0.36.0 se publica con bytecode Java 21 y el runtime JVM requiere Java 21+.
+- Kotlin 2.0.21 → 2.4.21, requerido por los metadatos de Kotlin 2.4 de
+  ziti-jvm 0.36.0 (compatible con AGP 8.6.1 y Gradle 8.14.3).
+
 ## [0.2.0] — 2026-11-22
 
 ### Añadido

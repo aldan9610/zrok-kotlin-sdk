@@ -31,16 +31,16 @@ publishing {
     }
 }
 
-// Se compila con el JDK actual (21) emitiendo bytecode Java 17, consumible
-// tanto desde JVM como desde Android (AGP/D8).
+// Se compila con el JDK actual (21) emitiendo bytecode Java 21, igual que
+// ziti-jvm 0.36.0 (requisito común; en Android lo desugara AGP/D8).
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         // El código generado usa kotlin.io.encoding.Base64 (ExperimentalEncodingApi).
         optIn.add("kotlin.io.encoding.ExperimentalEncodingApi")
     }

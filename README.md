@@ -43,8 +43,9 @@ El SDK cubre las **dos capas** de zrok:
 ## Requisitos
 
 - **Android**: minSdk 26, compileSdk 34.
-- **JVM**: Java 17+.
-- Para compilar: JDK 17+, Android SDK (platform 34). Los tests de `zrok-core` no
+- **JVM**: Java 21+ (requisito de ziti-jvm 0.36.0, que se publica con bytecode
+  Java 21).
+- Para compilar: JDK 21+, Android SDK (platform 34). Los tests de `zrok-core` no
   necesitan Android.
 
 ## Inicio rápido en Android
@@ -225,8 +226,8 @@ Semántica verificada en `sdk/golang/sdk/listener.go` y `dialer.go`: lado host
 
 ### Versiones de ziti alineadas
 
-`zrok-core` usa `org.openziti:ziti:0.25.1` porque es exactamente la versión
-sobre la que está construido `org.openziti:ziti-android:0.30.0`: JVM y Android
+`zrok-core` usa `org.openziti:ziti:0.36.0` porque es exactamente la versión
+sobre la que está construido `org.openziti:ziti-android:0.36.0`: JVM y Android
 comparten la misma implementación. En Android se excluye `lazysodium-java`
 (escritorio) porque `ziti-android` aporta `lazysodium-android` vía su
 `AndroidCryptoLoader` (ServiceLoader).
@@ -312,7 +313,7 @@ tunnel.hostDrive(share.token, "/data/docs")
 ## Límites actuales (v0.2)
 
 - **UDP público**: el SDK Go de zrok confía en que el ziti-go-sdk preserva los
-  límites de datagrama en `Read`/`Write` del `net.Conn` ziti. ziti-jvm 0.25.1
+  límites de datagrama en `Read`/`Write` del `net.Conn` ziti. ziti-jvm
   no expone eso: su `AsynchronousSocketChannel` es de stream y un `read`
   fusiona varios mensajes ziti en el buffer. Por eso el UDP de este SDK
   enmarca cada datagrama con un prefijo de longitud de 2 bytes sobre el

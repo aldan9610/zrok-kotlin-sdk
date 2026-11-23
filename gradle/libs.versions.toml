@@ -1,14 +1,14 @@
 # Catálogo de versiones centralizado del SDK de zrok para Kotlin.
 
 [versions]
-kotlin = "2.0.21"
+kotlin = "2.4.21"
 coroutines = "1.9.0"
 serialization = "1.7.3"
 ktor = "2.3.13"
-# ziti-jvm 0.25.1 alineado con ziti-android 0.30.0 (que depende de ziti 0.25.1),
+# ziti-jvm 0.36.0 alineado con ziti-android 0.36.0 (que depende de ziti 0.36.0),
 # para que JVM y Android usen exactamente la misma version de org.openziti:ziti.
-ziti = "0.25.1"
-zitiAndroid = "0.30.0"
+ziti = "0.36.0"
+zitiAndroid = "0.36.0"
 agp = "8.6.1"
 openapiGenerator = "7.27.0"
 junit = "5.10.2"

@@ -13,23 +13,24 @@ publishing {
     }
 }
 
-// Igual que zrok-api: se compila con el JDK actual emitiendo bytecode Java 17,
-// consumible tanto desde JVM como desde Android.
+// Igual que zrok-api: se compila con el JDK actual emitiendo bytecode Java 21.
+// Es el requisito de ziti-jvm 0.36.0 (publicado con bytecode Java 21); en
+// Android lo desugara D8, igual que hace con las clases de ziti.
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
 }
 
 dependencies {
     api(project(":zrok-api"))
     api(libs.kotlinx.coroutines.core)
-    // ziti-jvm: versión 0.25.1 alineada con org.openziti:ziti-android:0.30.0 para
+    // ziti-jvm: versión 0.36.0 alineada con org.openziti:ziti-android:0.36.0 para
     // que JVM y Android compartan exactamente la misma implementación de ziti.
     implementation(libs.ziti.jvm)
 
